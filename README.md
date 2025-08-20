@@ -19,9 +19,11 @@ All dates are in the RFC 3339 format, we're not cavemen here.
   - [**Usage**](#usage)
     - [**Initializing the Client**](#initializing-the-client)
     - [**Fetching Data with Query Parameters (Filtering, Pagination, Sorting)**](#fetching-data-with-query-parameters-filtering-pagination-sorting)
-    - [**Fetching Organizations**](#fetching-organizations)
-    - [**Fetching Persons**](#fetching-persons)
-    - [**Fetch ...**](#fetch-)
+    - [**Sample code based on appendix C in the SS12000 standard**](#sample-code-based-on-appendix-c-in-the-ss12000-standard)
+      - [**Fetching basic person data at an organizations (C1)**](#fetching-basic-person-data-at-an-organizations-c1)
+      - [**Fetching information related to a person (C2)**](#fetching-information-related-to-a-person-c2)
+      - [**Service management data (C3)**](#service-management-data-c3)
+      - [**Teacher relations (C4)**](#teacher-relations-c4)
     - [**Webhooks (Subscriptions)**](#webhooks-subscriptions)
   - [**API Reference**](#api-reference)
   - [**Webhook Receiver (PHP Example)**](#webhook-receiver-php-example)
@@ -109,64 +111,153 @@ try {
 }
 ```
 
-### **Fetching Organizations**
+### **Sample code based on appendix C in the SS12000 standard**
 
-You can retrieve a list of organizations or a specific organization by its ID. Parameters are passed as an associative array.  
+#### **Fetching basic person data at an organizations (C1)**
+
+See the standard for 
+```
+<?php
+$client = new SS12000Client(BASE_URL, AUTH_TOKEN);
+
+// Fetch organisations (paginated)
+$pageToken = null;
+do {
+    $params = ['limit' => 200];
+    if ($pageToken) $params['pageToken'] = $pageToken;
+    $orgs = $client->getOrganisations($params);
+    // Store the data locally
+    $pageToken = $orgs['nextPageToken'] ?? null;
+} while ($pageToken);
+
+// Fetch persons (paginated)
+$pageToken = null;
+do {
+    $params = [
+      'relationship.organisation' => '0fe9fce0-7d73-4238-b1c9-9c4bd00045ba', 
+      'limit' => 200, 
+      'expand' => ['duties'] // expand as needed
+      ]; 
+    if ($pageToken) $params['pageToken'] = $pageToken;
+    $persons = $client->getPersons($params);
+    // Store the data locally
+    $pageToken = $persons['nextPageToken'] ?? null;
+} while ($pageToken);
+```
+
+#### **Fetching information related to a person (C2)**
+
 ```
 <?php  
 // ... (initialization from above)
 
-async function getOrganizationData(SS12000Client $client) {  
-    try {  
-        echo "\nFetching organizations...\n";  
-        $organizations = $client->getOrganisations(['limit' => 2\]);  
-        echo "Fetched organizations: " . json_encode($organizations, JSON_PRETTY_PRINT) . "\n";
+  //get duties
+  $duties = $client->getDuties(['organisation' => '0fe9fce0-7d73-4238-b1c9-9c4bd00045ba']);  
 
-        if (!empty($organizations['data'])) {  
-            $firstOrgId = $organizations['data'][0]['id'];  
-            echo "\nFetching organization with ID: {$firstOrgId}...\n";  
-            $orgById = $client->getOrganisationById($firstOrgId, true); // expandReferenceNames = true  
-            echo "Fetched organization by ID: " . json_encode($orgById, JSON_PRETTY_PRINT) . "\n";  
-        }  
-    } catch (RequestException $e) {  
-        echo "An HTTP request error occurred fetching organization data: " . $e->getMessage() . "\n";  
-    } catch (Exception $e) {  
-        echo "An unexpected error occurred fetching organization data: " . $e->getMessage() . "\n";  
-    }  
-}
+  //get groups
+  $groups = $client->getGroups(['owner' => '0fe9fce0-7d73-4238-b1c9-9c4bd00045ba']);
+
+  //create subscription
+  $subBody = [
+    'name' => 'duties and such',
+    'target' => 'https://my.service.example/ss12000-webhook',
+    'resourceTypes' => [
+        ['resource' => 'organisation'],
+        ['resource' => 'person'],
+        ['resource' => 'duties'],
+        ['resource' => 'groups'],
+    ],
+    // optional:
+    'expires' => '2026-01-01T00:00:00+00:00'
+  ];
+  $sub = $client->createSubscription($subBody);
+
+  //Server pings back and logic below triggers
+
+  $persons = $client->getpersons(['meta.modified.after' => '2025-08-20T12:12:30+02:00']);
 
 ```
 
-### **Fetching Persons**
+#### **Service management data (C3)**
 
-Similarly, you can fetch persons and expand related data such as duties.  
 ```
 <?php  
 // ... (initialization from above)
 
-async function getPersonData(SS12000Client $client) {  
-    try {  
-        echo "\nFetching persons...\n";  
-        $persons = $client-\>getPersons(['limit' => 2, 'expand' => ['duties']]);  
-        echo "Fetched persons: " . json_encode($persons, JSON_PRETTY_PRINT) . "\n";
+  //get duties
+  $duties = $client->getDuties(['organisation' => '0fe9fce0-7d73-4238-b1c9-9c4bd00045ba']);
 
-        if (!empty($persons['data'])) {  
-            $firstPersonId = $persons['data'][0]['id'];  
-            echo "\nFetching person with ID: {$firstPersonId}...\n";  
-            $personById = $client->getPersonById($firstPersonId, ['duties', 'responsibleFor'], true);  
-            echo "Fetched person by ID: " . json_encode($personById, JSON_PRETTY_PRINT) . "\n";  
-        }  
-    } catch (RequestException $e) {  
-        echo "An HTTP request error occurred fetching person data: " . $e->getMessage() . "\n";  
-    } catch (Exception $e) {  
-        echo "An unexpected error occurred fetching person data: " . $e->getMessage() . "\n";  
-    }  
-}
+  //get groups
+  $groups = $client->getGroups(['owner' => '0fe9fce0-7d73-4238-b1c9-9c4bd00045ba']);
+  
+  //get syllabuses
+  $syllabusbes = $client->getSyllabuses();
+
+  //get school unit offerings
+  $suo = $client->getSchoolUnitOfferings(['offeredAt' => '0fe9fce0-7d73-4238-b1c9-9c4bd00045ba']);
+
+  //create subscription
+  $subBody = [
+    'name' => 'service management',
+    'target' => 'https://my.service.example/ss12000-webhook',
+    'resourceTypes' => [
+        ['resource' => 'organisations'],
+        ['resource' => 'persons'],
+        ['resource' => 'duties'],
+        ['resource' => 'groups'],
+        ['resource' => 'syllabuses'],
+        ['resource' => 'SchoolUnitOffering'],
+    ],
+    // optional:
+    'expires' => '2026-01-01T00:00:00+00:00'
+  ];
+  $sub = $client->createSubscription($subBody);
+
+  //Server pings back and logic below triggers
+
+  $persons = $client->getpersons(['meta.modified.after' => '2025-08-20T12:12:30+02:00']);
+
 ```
 
-### **Fetch ...**
+#### **Teacher relations (C4)**
 
-Check the API reference below to see all available nodes. 
+```
+<?php  
+// ... (initialization from above)
+
+  //get duties
+  $duties = $client->getDuties(['organisation' => '0fe9fce0-7d73-4238-b1c9-9c4bd00045ba']);
+
+  //get groups
+  $groups = $client->getGroups(['owner' => '0fe9fce0-7d73-4238-b1c9-9c4bd00045ba']);
+  
+  //get syllabuses
+  $syllabusbes = $client->getSyllabuses();
+
+  //get activities
+  $activities = $client->getActivities(['organisation' => '0fe9fce0-7d73-4238-b1c9-9c4bd00045ba']);
+
+  //create subscription
+  $subBody = [
+    'name' => 'activities',
+    'target' => 'https://my.service.example/ss12000-webhook',
+    'resourceTypes' => [
+        ['resource' => 'organisations'],
+        ['resource' => 'persons'],
+        ['resource' => 'duties'],
+        ['resource' => 'groups'],
+        ['resource' => 'activities'],
+        ['resource' => 'syllabuses']
+    ],
+    // optional:
+    'expires' => '2026-01-01T00:00:00+00:00'
+  ];
+  $sub = $client->createSubscription($subBody);
+
+  //Server pings back and logic below triggers
+
+  $persons = $client->getpersons(['meta.modified.after' => '2025-08-20T12:12:30+02:00']);
+```
 
 ### **Webhooks (Subscriptions)**
 
@@ -212,90 +303,97 @@ async function manageSubscriptions(SS12000Client $client) {
 The SS12000Client class is designed to expose methods for all SS12000 API endpoints. All methods return an associative array (decoded JSON) for data retrieval or void for operations without content (e.g., DELETE). Parameters are typically passed as associative arrays.  
 Here is a list of the primary resource paths defined in the OpenAPI specification, along with their corresponding client methods:
 
-* /organisations  
-  * getOrganisations(array $queryParams)  
-  * lookupOrganisations(array $body, bool $expandReferenceNames)  
-  * getOrganisationById(string $orgId, bool $expandReferenceNames)  
-* /persons  
-  * getPersons(array $queryParams)  
-  * lookupPersons(array $body, array $expand, bool $expandReferenceNames)  
-  * getPersonById(string $personId, array $expand, bool $expandReferenceNames)  
-* /placements  
-  * getPlacements(array $queryParams)  
-  * lookupPlacements(array $body, array $expand, bool $expandReferenceNames)  
-  * getPlacementById(string $placementId, array $expand, bool $expandReferenceNames)  
-* /duties  
-  * getDuties(array $queryParams)  
-  * lookupDuties(array $body, array $expand, bool $expandReferenceNames)  
-  * getDutyById(string $dutyId, array $expand, bool $expandReferenceNames)  
-* /groups  
-  * getGroups(array $queryParams)  
-  * lookupGroups(array $body, array $expand, bool $expandReferenceNames)  
-  * getGroupById(string $groupId, array $expand, bool $expandReferenceNames)  
-* /programmes  
-  * getProgrammes(array $queryParams)  
-  * lookupProgrammes(array $body, array $expand, bool $expandReferenceNames)  
-  * getProgrammeById(string $programmeId, array $expand, bool $expandReferenceNames)  
-* /studyplans  
-  * getStudyPlans(array $queryParams)  
-  * lookupStudyPlans(array $body, array $expand, bool $expandReferenceNames)  
-  * getStudyPlanById(string $studyPlanId, array $expand, bool $expandReferenceNames)  
-* /syllabuses  
-  * getSyllabuses(array $queryParams)  
-  * lookupSyllabuses(array $body, bool $expandReferenceNames)  
-  * getSyllabusById(string $syllabusId, bool $expandReferenceNames)  
-* /schoolUnitOfferings  
-  * getSchoolUnitOfferings(array $queryParams)  
-  * lookupSchoolUnitOfferings(array $body, array $expand, bool $expandReferenceNames)  
-  * getSchoolUnitOfferingById(string $offeringId, array $expand, bool $expandReferenceNames)  
-* /activities  
-  * getActivities(array $queryParams)  
-  * lookupActivities(array $body, array $expand, bool $expandReferenceNames)  
-  * getActivityById(string $activityId, array $expand, bool $expandReferenceNames)  
-* /calendarEvents  
-  * getCalendarEvents(array $queryParams)  
-  * lookupCalendarEvents(array $body, array $expand, bool $expandReferenceNames)  
-  * getCalendarEventById(string $eventId, array $expand, bool $expandReferenceNames)  
-* /attendances  
-  * getAttendances(array $queryParams)  
-  * lookupAttendances(array $body, array $expand, bool $expandReferenceNames)  
-  * getAttendanceById(string $attendanceId, array $expand, bool $expandReferenceNames)  
-  * deleteAttendance(string $attendanceId)  
-* /attendanceEvents  
-  * getAttendanceEvents(array $queryParams)  
-  * lookupAttendanceEvents(array $body, array $expand, bool $expandReferenceNames)  
-  * getAttendanceEventById(string $eventId, array $expand, bool $expandReferenceNames)  
-* /attendanceSchedules  
-  * getAttendanceSchedules(array $queryParams)  
-  * lookupAttendanceSchedules(array $body, array $expand, bool $expandReferenceNames)  
-  * getAttendanceScheduleById(string $scheduleId, array $expand, bool $expandReferenceNames)  
-* /grades  
-  * getGrades(array $queryParams)  
-  * lookupGrades(array $body, array $expand, bool $expandReferenceNames)  
-  * getGradeById(string $gradeId, array $expand, bool $expandReferenceNames)  
-* /aggregatedAttendance  
-  * getAggregatedAttendances(array $queryParams)  
-  * lookupAggregatedAttendances(array $body, array $expand, bool $expandReferenceNames)  
-  * getAggregatedAttendanceById(string $attendanceId, array $expand, bool $expandReferenceNames)  
-* /resources  
-  * getResources(array $queryParams)  
-  * lookupResources(array $body, bool $expandReferenceNames)  
-  * getResourceById(string $resourceId, bool $expandReferenceNames)  
-* /rooms  
-  * getRooms(array $queryParams)  
-  * lookupRooms(array $body, bool $expandReferenceNames)  
-  * getRoomById(string $roomId, bool $expandReferenceNames)  
-* /subscriptions  
-  * getSubscriptions(array $queryParams)  
-  * createSubscription(array|object $body)  
-  * deleteSubscription(string $subscriptionId)  
-  * getSubscriptionById(string $subscriptionId)  
-  * updateSubscription(string $subscriptionId, array|object $body)  
-* /deletedEntities  
-  * getDeletedEntities(array $queryParams)  
-* /log  
-  * getLog(array $queryParams)  
-* /statistics  
+* /organisations
+  * getOrganisations(array $queryParams)
+  * lookupOrganisations(array $body, bool $expandReferenceNames = false)
+  * getOrganisationById(string $orgId, bool $expandReferenceNames = false)
+* /persons
+  * getPersons(array $queryParams)
+  * lookupPersons(array $body, array $expand = [], bool $expandReferenceNames = false)
+  * getPersonById(string $personId, array $expand = [], bool $expandReferenceNames = false)
+* /placements
+  * getPlacements(array $queryParams)
+  * lookupPlacements(array $body, array $expand = [], bool $expandReferenceNames = false)
+  * getPlacementById(string $placementId, array $expand = [], bool $expandReferenceNames = false)
+* /duties
+  * getDuties(array $queryParams)
+  * lookupDuties(array $body, array $expand = [], bool $expandReferenceNames = false)
+  * getDutyById(string $dutyId, array $expand = [], bool $expandReferenceNames = false)
+* /groups
+  * getGroups(array $queryParams)
+  * lookupGroups(array $body, array $expand = [], bool $expandReferenceNames = false)
+  * getGroupById(string $groupId, array $expand = [], bool $expandReferenceNames = false)
+* /programmes
+  * getProgrammes(array $queryParams)
+  * lookupProgrammes(array $body, bool $expandReferenceNames = false)
+  * getProgrammeById(string $programmeId, bool $expandReferenceNames = false)
+* /studyplans
+  * getStudyPlans(array $queryParams)
+  * getStudyPlanById(string $studyPlanId, bool $expandReferenceNames = false)
+* /syllabuses
+  * getSyllabuses(array $queryParams)
+  * lookupSyllabuses(array $body, bool $expandReferenceNames = false)
+  * getSyllabusById(string $syllabusId, bool $expandReferenceNames = false)
+* /schoolUnitOfferings
+  * getSchoolUnitOfferings(array $queryParams)
+  * lookupSchoolUnitOfferings(array $body, bool $expandReferenceNames = false)
+  * getSchoolUnitOfferingById(string $offeringId, bool $expandReferenceNames = false)
+* /activities
+  * getActivities(array $queryParams)
+  * lookupActivities(array $body, array $expand = [], bool $expandReferenceNames = false)
+  * getActivityById(string $activityId, array $expand = [], bool $expandReferenceNames = false)
+* /calendarEvents
+  * getCalendarEvents(array $queryParams)
+  * lookupCalendarEvents(array $body, bool $expandReferenceNames = false)
+  * getCalendarEventById(string $eventId, array $expand = [], bool $expandReferenceNames = false)
+* /attendances
+  * getAttendances(array $queryParams)
+  * postAttendance(array $body): void
+  * lookupAttendances(array $body, bool $expandReferenceNames = false)
+  * getAttendanceById(string $attendanceId)
+  * deleteAttendance(string $attendanceId): void
+* /attendanceEvents
+  * getAttendanceEvents(array $queryParams)
+  * postAttendanceEvent(array $body): void
+  * lookupAttendanceEvents(array $body, array $expand = [], bool $expandReferenceNames = false)
+  * getAttendanceEventById(string $eventId, array $expand = [], bool $expandReferenceNames = false)
+  * deleteAttendanceEvent(string $eventId): void
+* /attendanceSchedules
+  * getAttendanceSchedules(array $queryParams)
+  * postAttendanceSchedule(array $body): void
+  * lookupAttendanceSchedules(array $body, bool $expandReferenceNames = false)
+  * getAttendanceScheduleById(string $scheduleId, array $expand = [], bool $expandReferenceNames = false)
+  * deleteAttendanceSchedule(string $scheduleId): void
+* /grades
+  * getGrades(array $queryParams)
+  * lookupGrades(array $body, bool $expandReferenceNames = false)
+  * getGradeById(string $gradeId, bool $expandReferenceNames = false)
+* /absences
+  * getAbsences(array $queryParams)
+  * postAbsence(array $body): void
+  * lookupAbsences(array $body, bool $expandReferenceNames = false)
+  * getAbsenceById(string $absenceId)
+* /aggregatedAttendance
+  * getAggregatedAttendances(array $queryParams)
+* /resources
+  * getResources(array $queryParams)
+  * lookupResources(array $body, bool $expandReferenceNames = false)
+  * getResourceById(string $resourceId, bool $expandReferenceNames = false)
+* /rooms
+  * getRooms(array $queryParams)
+  * lookupRooms(array $body, bool $expandReferenceNames = false)
+  * getRoomById(string $roomId, bool $expandReferenceNames = false)
+* /subscriptions
+  * getSubscriptions(array $queryParams)
+  * createSubscription($body)
+  * deleteSubscription(string $subscriptionId): void
+  * getSubscriptionById(string $subscriptionId)
+  * updateSubscription(string $subscriptionId, $body)
+* /deletedEntities
+  * getDeletedEntities(array $queryParams)
+* /log
+  * getLog(array $queryParams)
+* /statistics
   * getStatistics(array $queryParams)
 
 Detailed information on available parameters can be found in the PHPDoc comments within src/SS12000Client.php.
