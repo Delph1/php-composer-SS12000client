@@ -139,29 +139,59 @@ class SS12000Client
 
     // --- Organisation Endpoints ---
 
-    /**
+        /**
      * Get a list of organizations.
      *
-     * @param array $queryParams Filter parameters.
+     * Accepts filter parameters (pass as associative array). Supported keys:
+     * - parent (array)                : Array of organisation IDs to filter.
+     * - schoolUnitCode (array)        : Array of skolenhetskoder.
+     * - organisationCode (array)      : Array of organisation codes.
+     * - municipalityCode (string)     : Kommunkod.
+     * - type (array|string)           : /components/schemas/OrganisationTypeEnum
+     * - schoolTypes (array|string)    : /components/schemas/SchoolTypesEnum
+     * - startDate.onOrBefore (string) : Date (RFC3339, e.g. "2016-10-15").
+     * - startDate.onOrAfter (string)  : Date (RFC3339).
+     * - endDate.onOrBefore (string)   : Date (RFC3339).
+     * - endDate.onOrAfter (string)    : Date (RFC3339).
+     * - meta.created.before (string)  : Date-time (RFC3339).
+     * - meta.created.after (string)   : Date-time (RFC3339).
+     * - meta.modified.before (string) : Date-time (RFC3339).
+     * - meta.modified.after (string)  : Date-time (RFC3339).
+     * - expandReferenceNames (bool)   : Return displayName for referenced objects.
+     * - sortkey (string)              : ModifiedDesc, DisplayNameAsc
+     * - limit (int)                   : Max results to return.
+     * - pageToken (string)            : Pagination token (opaque).
+     *
+     * Example:
+     *   $client->getOrganisations([
+     *       'schoolUnitCode' => ['F2311'],
+     *       'limit' => 50,
+     *       'expandReferenceNames' => true
+     *   ]);
+     *
+     * @param array $queryParams Filter parameters (see supported keys above).
      * @return array|object A list of organizations.
      */
     public function getOrganisations(array $queryParams = [])
     {
-        // Map PHP-style snake_case to API-style camelCase if necessary
         $mappedParams = [];
         foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key); // Custom mapping function
+            $mappedKey = $this->$key; // Custom mapping function
             $mappedParams[$mappedKey] = $value;
         }
         return $this->request('GET', '/organisations', $mappedParams);
     }
 
     /**
-     * Get multiple organizations based on a list of IDs.
+     * Lookup multiple organisations by IDs or identifiers.
      *
-     * @param array $body Request body with IDs.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object A list of organizations.
+     * Request body: array/object according to API (e.g. { "ids": [...] } or plain id array).
+     * Query parameters:
+     * - expandReferenceNames (bool)
+     *
+     * @param array $body
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function lookupOrganisations(array $body, bool $expandReferenceNames = false)
     {
@@ -173,11 +203,14 @@ class SS12000Client
     }
 
     /**
-     * Get an organization by ID.
+     * Get an organisation by id.
      *
-     * @param string $orgId ID of the organization.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object The organization object.
+     * Query parameters:
+     * - expandReferenceNames (bool)
+     *
+     * @param string $orgId
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function getOrganisationById(string $orgId, bool $expandReferenceNames = false)
     {
@@ -193,26 +226,61 @@ class SS12000Client
     /**
      * Get a list of persons.
      *
-     * @param array $queryParams Filter parameters.
+     * Supported query keys:
+     * - nameContains (array)                 : Array of strings to search in name.
+     * - civicNo (string)                     : Personnummer filter.
+     * - eduPersonPrincipalName (string)      : Filter by eduPersonPrincipalName.
+     * - identifier.value (string)            : External identifier value.
+     * - identifier.context (string)          : Context for external identifier.
+     * - relationship.entity.type (string)    : Relation type (e.g. enrolment, duty, etc.).
+     * - relationship.organisation (string)   : Organisation UUID for relation.
+     * - relationship.startDate.onOrBefore    : Date (RFC3339).
+     * - relationship.startDate.onOrAfter     : Date (RFC3339).
+     * - relationship.endDate.onOrBefore      : Date (RFC3339).
+     * - relationship.endDate.onOrAfter       : Date (RFC3339).
+     * - meta.created.before                  : Date-time (RFC3339).
+     * - meta.created.after                   : Date-time (RFC3339).
+     * - meta.modified.before                 : Date-time (RFC3339).
+     * - meta.modified.after                  : Date-time (RFC3339).
+     * - expand (array)                       : duties, responsibleFor, placements, ownedPlacements, groupMemberships
+     * - expandReferenceNames (bool)          : Return displayName for referenced objects.
+     * - sortkey (string)                     : DisplayNameAsc, GivenNameDesc, GivenNameAsc, FamilyNameDesc, FamilyNameAsc, CivicNoAsc, CivicNoDesc, ModifiedDesc 
+     * - limit (int)
+     * - pageToken (string)
+     *
+     * Example:
+     *   $client->getPersons([
+     *       'nameContains' => ['Pa','gens'],
+     *       'expand' => ['duties'],
+     *       'limit' => 20
+     *   ]);
+     *
+     * @param array $queryParams Filter parameters (see supported keys above).
      * @return array|object A list of persons.
      */
+
     public function getPersons(array $queryParams = [])
     {
         $mappedParams = [];
         foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
+            $mappedKey = $this->$key;
             $mappedParams[$mappedKey] = $value;
         }
         return $this->request('GET', '/persons', $mappedParams);
     }
 
     /**
-     * Get multiple persons based on a list of IDs or civic numbers.
+     * Lookup multiple persons by IDs or civic numbers.
      *
-     * @param array $body Request body with IDs or civic numbers.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object A list of persons.
+     * Request body: array/object per API (e.g. { "ids": [...] } or plain array).
+     * Query parameters:
+     * - expand (array)                  : duties, responsibleFor, placements, ownedPlacements, groupMemberships
+     * - expandReferenceNames (bool)
+     *
+     * @param array $body
+     * @param array $expand
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function lookupPersons(array $body, array $expand = [], bool $expandReferenceNames = false)
     {
@@ -227,12 +295,16 @@ class SS12000Client
     }
 
     /**
-     * Get a person by person ID.
+     * Get a person by id.
      *
-     * @param string $personId ID of the person.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object The person object.
+     * Query parameters:
+     * - expand (array)                  : duties, responsibleFor, placements, ownedPlacements, groupMemberships
+     * - expandReferenceNames (bool)
+     *
+     * @param string $personId
+     * @param array $expand
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function getPersonById(string $personId, array $expand = [], bool $expandReferenceNames = false)
     {
@@ -251,26 +323,50 @@ class SS12000Client
     /**
      * Get a list of placements.
      *
-     * @param array $queryParams Filter parameters.
+     * Supported query keys:
+     * - organisation (string)             : UUID of organisation (placedAt).
+     * - group (string)                    : UUID of group.
+     * - startDate.onOrBefore (string)     : Date (RFC3339).
+     * - startDate.onOrAfter (string)      : Date (RFC3339).
+     * - endDate.onOrBefore (string)       : Date (RFC3339).
+     * - endDate.onOrAfter (string)        : Date (RFC3339).
+     * - child (string)                    : UUID of child person.
+     * - owner (string)                    : UUID of owner.
+     * - meta.created.before               : Date-time (RFC3339).
+     * - meta.created.after                : Date-time (RFC3339).
+     * - meta.modified.after               : Date-time (RFC3339).
+     * - meta.modified.before              : Date-time (RFC3339).
+     * - expand (array)                    : child, owner
+     * - expandReferenceNames (bool)
+     * - sortkey (string)                  : StartDateAsc, StartDateDesc, EndDateAsc, EndDateDesc, ModifiedDesc
+     * - pageToken (string)
+     * - limit (int)
+     *
+     * @param array $queryParams Filter parameters (see supported keys above).
      * @return array|object A list of placements.
      */
     public function getPlacements(array $queryParams = [])
     {
         $mappedParams = [];
         foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
+            $mappedKey = $this->$key;
             $mappedParams[$mappedKey] = $value;
         }
         return $this->request('GET', '/placements', $mappedParams);
     }
 
     /**
-     * Get multiple placements based on a list of IDs.
+     * Lookup multiple placements by IDs.
      *
-     * @param array $body Request body with IDs.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object A list of placements.
+     * Request body: array/object per API (ids).
+     * Query parameters:
+     * - expand (array)                    : child, owner
+     * - expandReferenceNames (bool)
+     *
+     * @param array $body
+     * @param array $expand                    
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function lookupPlacements(array $body, array $expand = [], bool $expandReferenceNames = false)
     {
@@ -285,12 +381,16 @@ class SS12000Client
     }
 
     /**
-     * Get a placement by ID.
+     * Get a placement by id.
      *
-     * @param string $placementId ID of the placement.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object The placement object.
+     * Query parameters:
+     * - expand (array)                    : child, owner
+     * - expandReferenceNames (bool)
+     *
+     * @param string $placementId
+     * @param array $expand
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function getPlacementById(string $placementId, array $expand = [], bool $expandReferenceNames = false)
     {
@@ -309,26 +409,49 @@ class SS12000Client
     /**
      * Get a list of duties.
      *
-     * @param array $queryParams Filter parameters.
-     * @return array|object A list of duties.
+     * Common query parameters:
+     * - organisation (string)          : UUID
+     * - dutyRole (string)              : /components/schemas/DutyRole
+     * - person (string)                : UUID
+     * - startDate.onOrBefore (string)  : Date (RFC3339)
+     * - startDate.onOrAfter (string)   : Date (RFC3339)
+     * - endDate.onOrBefore   (string)  : Date (RFC3339)
+     * - endDate.onOrAfter    (string)  : Date (RFC3339)
+     * - meta.created.before (string)   : Date-time (RFC3339)
+     * - meta.created.after (string)    : Date-time (RFC3339)
+     * - meta.modified.before (string)  : Date-time (RFC3339)
+     * - meta.modified.after (string)   : Date-time (RFC3339)
+     * - expand (array)                 : person
+     * - expandReferenceNames (bool)
+     * - sortkey (string)               : StartDateAsc, StartDateDesc, ModifiedDesc
+     * - limit (int)
+     * - pageToken (string)
+     *
+     * @param array $queryParams
+     * @return array|object
      */
     public function getDuties(array $queryParams = [])
     {
         $mappedParams = [];
         foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
+            $mappedKey = $this->$key;
             $mappedParams[$mappedKey] = $value;
         }
         return $this->request('GET', '/duties', $mappedParams);
     }
 
     /**
-     * Get multiple duties based on a list of IDs.
+     * Lookup multiple duties by IDs.
      *
-     * @param array $body Request body with IDs.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object A list of duties.
+     * Request body: array/object with ids.
+     * Query parameters:
+     * - expand (array|string)                 : person
+     * - expandReferenceNames (bool)
+     *
+     * @param array $body
+     * @param array $expand
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function lookupDuties(array $body, array $expand = [], bool $expandReferenceNames = false)
     {
@@ -343,12 +466,16 @@ class SS12000Client
     }
 
     /**
-     * Get a duty by ID.
+     * Get a duty by id.
      *
-     * @param string $dutyId ID of the duty.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object The duty object.
+     * Query parameters:
+     * - expand (array|string)                : person
+     * - expandReferenceNames (bool)
+     *
+     * @param string $dutyId
+     * @param array $expand
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function getDutyById(string $dutyId, array $expand = [], bool $expandReferenceNames = false)
     {
@@ -367,26 +494,49 @@ class SS12000Client
     /**
      * Get a list of groups.
      *
-     * @param array $queryParams Filter parameters.
-     * @return array|object A list of groups.
+     * Typical query parameters:
+     * - groupType (array)              : /components/schemas/GroupTypeEnum
+     * - schoolTypes (array)            : /components/schemas/SchoolTypesEnum
+     * - organisation (array|string)    : UUID
+     * - startDate.onOrBefore (string)  : Date (RFC3339)
+     * - startDate.onOrAfter (string)   : Date (RFC3339)
+     * - endDate.onOrBefore   (string)  : Date (RFC3339)
+     * - endDate.onOrAfter    (string)  : Date (RFC3339)
+     * - meta.created.before (string)   : Date-time (RFC3339)
+     * - meta.created.after (string)    : Date-time (RFC3339)
+     * - meta.modified.before (string)  : Date-time (RFC3339)
+     * - meta.modified.after (string)   : Date-time (RFC3339)
+     * - expand (array)                 : assignmentRoles
+     * - expandReferenceNames (bool)
+     * - sortkey (string)               : ModifiedDesc, DisplayNameAsc, StartDateAsc, StartDateDesc, EndDateAsc, EndDateDesc
+     * - limit (int)
+     * - pageToken (string)
+     *
+     * @param array $queryParams
+     * @return array|object
      */
     public function getGroups(array $queryParams = [])
     {
         $mappedParams = [];
         foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
+            $mappedKey = $this->$key;
             $mappedParams[$mappedKey] = $value;
         }
         return $this->request('GET', '/groups', $mappedParams);
     }
 
     /**
-     * Get multiple groups based on a list of IDs.
+     * Lookup multiple groups by IDs.
      *
-     * @param array $body Request body with IDs.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object A list of groups.
+     * Request body: array/object with ids.
+     * Query parameters:
+     * - expand (array)                  : assignmentRoles
+     * - expandReferenceNames (bool)
+     *
+     * @param array $body
+     * @param array $expand
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function lookupGroups(array $body, array $expand = [], bool $expandReferenceNames = false)
     {
@@ -401,12 +551,16 @@ class SS12000Client
     }
 
     /**
-     * Get a group by ID.
+     * Get a group by id.
      *
-     * @param string $groupId ID of the group.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object The group object.
+     * Query parameters:
+     * - expand (array)                : assignmentRoles
+     * - expandReferenceNames (bool)
+     *
+     * @param string $groupId
+     * @param array $expand
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function getGroupById(string $groupId, array $expand = [], bool $expandReferenceNames = false)
     {
@@ -425,33 +579,46 @@ class SS12000Client
     /**
      * Get a list of programmes.
      *
-     * @param array $queryParams Filter parameters.
-     * @return array|object A list of programmes.
+     * Common query parameters:
+     * - schoolType (array)                     : /components/schemas/SchoolTypesEnum
+     * - code (string)
+     * - parentProgramme (string)
+     * - meta.created.after (string)            : Date-time (RFC3339)
+     * - meta.created.before (string)           : Date-time (RFC3339)
+     * - meta.modified.before (string)          : Date-time (RFC3339)
+     * - meta.modified.after (string)           : Date-time (RFC3339)
+     * - expandReferenceNames (bool)
+     * - sortkey (string)                       : NameAsc, CodeAsc, ModifiedDesc
+     * - limit (int)
+     * - pageToken (string)
+     *
+     * @param array $queryParams
+     * @return array|object
      */
     public function getProgrammes(array $queryParams = [])
     {
         $mappedParams = [];
         foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
+            $mappedKey = $this->$key;
             $mappedParams[$mappedKey] = $value;
         }
         return $this->request('GET', '/programmes', $mappedParams);
     }
 
     /**
-     * Get multiple programmes based on a list of IDs.
+     * Lookup multiple programmes by IDs.
      *
-     * @param array $body Request body with IDs.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object A list of programmes.
+     * Request body: array/object with ids.
+     * Query parameters:
+     * - expandReferenceNames (bool)
+     *
+     * @param array $body
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
-    public function lookupProgrammes(array $body, array $expand = [], bool $expandReferenceNames = false)
+    public function lookupProgrammes(array $body, bool $expandReferenceNames = false)
     {
         $queryParams = [];
-        if (!empty($expand)) {
-            $queryParams['expand'] = $expand;
-        }
         if ($expandReferenceNames) {
             $queryParams['expandReferenceNames'] = true;
         }
@@ -459,19 +626,18 @@ class SS12000Client
     }
 
     /**
-     * Get a programme by ID.
+     * Get a programme by id.
      *
-     * @param string $programmeId ID of the programme.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object The programme object.
+     * Query parameters:
+     * - expandReferenceNames (bool)
+     *
+     * @param string $programmeId
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
-    public function getProgrammeById(string $programmeId, array $expand = [], bool $expandReferenceNames = false)
+    public function getProgrammeById(string $programmeId, bool $expandReferenceNames = false)
     {
         $queryParams = [];
-        if (!empty($expand)) {
-            $queryParams['expand'] = $expand;
-        }
         if ($expandReferenceNames) {
             $queryParams['expandReferenceNames'] = true;
         }
@@ -483,53 +649,65 @@ class SS12000Client
     /**
      * Get a list of study plans.
      *
-     * @param array $queryParams Filter parameters.
-     * @return array|object A list of study plans.
+     * Common filters:
+     * - student (array|string)
+     * - startDate.onOrAfter (string)   : Date (RFC3339)
+     * - startDate.onOrBefore(string)   : Date (RFC3339)
+     * - endDate.onOrAfter (string)     : Date (RFC3339)
+     * - endDate.onOrBefore (string)    : Date (RFC3339)
+     * - meta.created.after (string)    : Date-time (RFC3339)
+     * - meta.created.before (string,   : Date-time (RFC3339)
+     * - meta.modified.before (string)  : Date-time (RFC3339)
+     * - meta.modified.after (string)   : Date-time (RFC3339)
+     * - expandReferenceNames (bool)
+     * - sortkey (string)               : ModifiedDesc, StartDateAsc, StartDateDesc, EndDateAsc, EndDateDesc
+     * - limit (int)
+     * - pageToken (string)
+     *
+     * @param array $queryParams
+     * @return array|object
      */
     public function getStudyPlans(array $queryParams = [])
     {
         $mappedParams = [];
         foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
+            $mappedKey = $this->$key;
             $mappedParams[$mappedKey] = $value;
         }
         return $this->request('GET', '/studyplans', $mappedParams);
     }
 
     /**
+     * Lookup of studyplans is not part of the SS12000 standard.
+     * 
      * Get multiple study plans based on a list of IDs.
      *
      * @param array $body Request body with IDs.
-     * @param array $expand Describes if expanded data should be fetched.
      * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
      * @return array|object A list of study plans.
+     * public function lookupStudyPlans(array $body, array $expand = [], bool $expandReferenceNames = false)
+     * {
+     *   $queryParams = [];
+     *   if ($expandReferenceNames) {
+     *       $queryParams['expandReferenceNames'] = true;
+     *   }
+     *   return $this->request('POST', '/studyplans/lookup', $queryParams, $body);
+     * }
      */
-    public function lookupStudyPlans(array $body, array $expand = [], bool $expandReferenceNames = false)
-    {
-        $queryParams = [];
-        if (!empty($expand)) {
-            $queryParams['expand'] = $expand;
-        }
-        if ($expandReferenceNames) {
-            $queryParams['expandReferenceNames'] = true;
-        }
-        return $this->request('POST', '/studyplans/lookup', $queryParams, $body);
-    }
 
     /**
-     * Get a study plan by ID.
+     * Get a study plan by id.
      *
-     * @param string $studyPlanId ID of the study plan.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object The study plan object.
+     * Query parameters:
+     * - expandReferenceNames (bool)
+     *
+     * @param string $studyPlanId
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
-    public function getStudyPlanById(string $studyPlanId, array $expand = [], bool $expandReferenceNames = false)
+    public function getStudyPlanById(string $studyPlanId, bool $expandReferenceNames = false)
     {
         $queryParams = [];
-        if (!empty($expand)) {
-            $queryParams['expand'] = $expand;
-        }
         if ($expandReferenceNames) {
             $queryParams['expandReferenceNames'] = true;
         }
@@ -541,25 +719,39 @@ class SS12000Client
     /**
      * Get a list of syllabuses.
      *
-     * @param array $queryParams Filter parameters.
-     * @return array|object A list of syllabuses.
+     * Common query parameters:
+     * - meta.created.before (string)   : Date-time (RFC3339)
+     * - meta.created.after (string)    : Date-time (RFC3339)
+     * - meta.modified.before (string)  : Date-time (RFC3339)
+     * - meta.modified.after (string)   : Date-time (RFC3339)
+     * - expandReferenceNames (bool)
+     * - sortkey (string)               : ModifiedDesc, SubjectNameAsc, SubjectNameDesc, SubjectCodeAsc, SubjectCodeDesc, CourseNameAsc, CourseNameDesc, CourseCodeAsc, CourseCodeDesc, SubjectDesignationAsc, SubjectDesignationDesc
+     * - limit (int)
+     * - pageToken (string)
+     *
+     * @param array $queryParams
+     * @return array|object
      */
     public function getSyllabuses(array $queryParams = [])
     {
         $mappedParams = [];
         foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
+            $mappedKey = $this->$key;
             $mappedParams[$mappedKey] = $value;
         }
         return $this->request('GET', '/syllabuses', $mappedParams);
     }
 
     /**
-     * Get multiple syllabuses based on a list of IDs.
+     * Lookup multiple syllabuses by IDs.
      *
-     * @param array $body Request body with IDs.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object A list of syllabuses.
+     * Request body: array/object with ids.
+     * Query parameters:
+     * - expandReferenceNames (bool)
+     *
+     * @param array $body
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function lookupSyllabuses(array $body, bool $expandReferenceNames = false)
     {
@@ -571,11 +763,14 @@ class SS12000Client
     }
 
     /**
-     * Get a syllabus by ID.
+     * Get a syllabus by id.
      *
-     * @param string $syllabusId ID of the syllabus.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object The syllabus object.
+     * Query parameters:
+     * - expandReferenceNames (bool)
+     *
+     * @param string $syllabusId
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function getSyllabusById(string $syllabusId, bool $expandReferenceNames = false)
     {
@@ -591,33 +786,44 @@ class SS12000Client
     /**
      * Get a list of school unit offerings.
      *
-     * @param array $queryParams Filter parameters.
-     * @return array|object A list of school unit offerings.
+     * Common filters:
+     * - organisation (string, UUID)
+     * - meta.created.after (string)      : Date-time (RFC3339)
+     * - meta.created.before (string)     : Date-time (RFC3339)
+     * - meta.modified.after (string)     : Date-time (RFC3339)
+     * - meta.modified.before (string)    : Date-time (RFC3339)
+     * - expandReferenceNames (bool)
+     * - sortkey (string)                 : ModifiedDesc, StartDateAsc, StartDateDesc, EndDateAsc, EndDateDesc
+     * - limit (int)
+     * - pageToken (string)
+     *
+     * @param array $queryParams
+     * @return array|object
      */
     public function getSchoolUnitOfferings(array $queryParams = [])
     {
         $mappedParams = [];
         foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
+            $mappedKey = $this->$key;
             $mappedParams[$mappedKey] = $value;
         }
         return $this->request('GET', '/schoolUnitOfferings', $mappedParams);
     }
 
     /**
-     * Get multiple school unit offerings based on a list of IDs.
+     * Lookup multiple school unit offerings by IDs.
      *
-     * @param array $body Request body with IDs.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object A list of school unit offerings.
+     * Request body: array/object with ids.
+     * Query parameters:
+     * - expandReferenceNames (bool)
+     *
+     * @param array $body
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
-    public function lookupSchoolUnitOfferings(array $body, array $expand = [], bool $expandReferenceNames = false)
+    public function lookupSchoolUnitOfferings(array $body, bool $expandReferenceNames = false)
     {
         $queryParams = [];
-        if (!empty($expand)) {
-            $queryParams['expand'] = $expand;
-        }
         if ($expandReferenceNames) {
             $queryParams['expandReferenceNames'] = true;
         }
@@ -625,19 +831,18 @@ class SS12000Client
     }
 
     /**
-     * Get a school unit offering by ID.
+     * Get a school unit offering by id.
      *
-     * @param string $offeringId ID of the school unit offering.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object The school unit offering object.
+     * Query parameters:
+     * - expandReferenceNames (bool)
+     *
+     * @param string $offeringId
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
-    public function getSchoolUnitOfferingById(string $offeringId, array $expand = [], bool $expandReferenceNames = false)
+    public function getSchoolUnitOfferingById(string $offeringId, bool $expandReferenceNames = false)
     {
         $queryParams = [];
-        if (!empty($expand)) {
-            $queryParams['expand'] = $expand;
-        }
         if ($expandReferenceNames) {
             $queryParams['expandReferenceNames'] = true;
         }
@@ -646,29 +851,53 @@ class SS12000Client
 
     // --- Activities Endpoints ---
 
-    /**
-     * Get a list of activities.
-     *
-     * @param array $queryParams Filter parameters.
-     * @return array|object A list of activities.
-     */
+/**
+ * Get a list of activities.
+ *
+ * Common filters:
+ * - member (string)                        : UUID
+ * - teacher (string)                       : UUID
+ * - organisation (string)                  : UUID
+ * - group (string)                         : UUID
+ * - startDate.onOrAfter (string)           : Date (RFC3339)
+ * - startDate.onOrBefore (string)          : Date (RFC3339)
+ * - endDate.onOrAfter (string)             : Date (RFC3339)
+ * - endDate.onOrBefore (string)            : Date (RFC3339)
+ * - meta.created.after (string)            : Date-time (RFC3339)
+ * - meta.created.before (string)           : Date-time (RFC3339)
+ * - meta.modified.after (string)           : Date-time (RFC3339)
+ * - meta.modified.before (string)          : Date-time (RFC3339)
+ * - expand (array)                         : groups, teachers, syllabus
+ * - expandReferenceNames (bool)
+ * - sortkey (string)                       : ModifiedDesc, DisplayNameAsc
+ * - limit (int)
+ * - pageToken (string)
+ *
+ * @param array $queryParams
+ * @return array|object
+ */
     public function getActivities(array $queryParams = [])
     {
         $mappedParams = [];
         foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
+            $mappedKey = $this->$key;
             $mappedParams[$mappedKey] = $value;
         }
         return $this->request('GET', '/activities', $mappedParams);
     }
 
     /**
-     * Get multiple activities based on a list of IDs.
+     * Lookup multiple activities by IDs.
      *
-     * @param array $body Request body with IDs.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object A list of activities.
+     * Request body: array/object with ids.
+     * Query parameters:
+     * - expand (array)                         : groups, teachers, syllabus
+     * - expandReferenceNames (bool)
+     *
+     * @param array $body
+     * @param array $expand
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function lookupActivities(array $body, array $expand = [], bool $expandReferenceNames = false)
     {
@@ -683,12 +912,16 @@ class SS12000Client
     }
 
     /**
-     * Get an activity by ID.
+     * Get an activity by id.
      *
-     * @param string $activityId ID of the activity.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object The activity object.
+     * Query parameters:
+     * - expand (array)                         : groups, teachers, syllabus
+     * - expandReferenceNames (bool)
+     *
+     * @param string $activityId
+     * @param array $expand
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function getActivityById(string $activityId, array $expand = [], bool $expandReferenceNames = false)
     {
@@ -707,33 +940,60 @@ class SS12000Client
     /**
      * Get a list of calendar events.
      *
-     * @param array $queryParams Filter parameters.
+     * Required/important query keys (pass as associative array):
+     * - startTime.onOrAfter (string) : Date-time (RFC3339) — required by spec for some calls.
+     * - startTime.onOrBefore (string): Date-time (RFC3339) — required by spec for some calls.
+     * - endTime.onOrBefore (string)  : Date-time (RFC3339).
+     * - endTime.onOrAfter (string)   : Date-time (RFC3339).
+     * - activity (string)            : Activity UUID.
+     * - student (string)             : Person UUID (student membership filter).
+     * - teacher (string)             : Duty UUID (teacher filter).
+     * - organisation (string)        : Organisation UUID.
+     * - group (string)               : Group UUID.
+     * - meta.created.before (string) : Date-time (RFC3339).
+     * - meta.created.after (string)  : Date-time (RFC3339).
+     * - meta.modified.before (string): Date-time (RFC3339).
+     * - meta.modified.after (string) : Date-time (RFC3339).
+     * - expand (array)               : activity, attendance
+     * - expandReferenceNames (bool)
+     * - sortkey (string)             : ModifiedDesc, StartTineAsc, StartTimeDesc
+     * - limit (int)
+     * - pageToken (string)
+     *
+     * Example:
+     *   $client->getCalendarEvents([
+     *       'startTime.onOrAfter' => '2025-08-01T00:00:00+02:00',
+     *       'startTime.onOrBefore' => '2025-08-31T23:59:59+02:00',
+     *       'limit' => 200
+     *   ]);
+     *
+     * @param array $queryParams Filter parameters (see supported keys above).
      * @return array|object A list of calendar events.
      */
     public function getCalendarEvents(array $queryParams = [])
     {
         $mappedParams = [];
         foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
+            $mappedKey = $this->$key;
             $mappedParams[$mappedKey] = $value;
         }
         return $this->request('GET', '/calendarEvents', $mappedParams);
     }
 
     /**
-     * Get multiple calendar events based on a list of IDs.
+     * Lookup multiple calendar events by IDs.
      *
-     * @param array $body Request body with IDs.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object A list of calendar events.
+     * Request body: array/object with ids.
+     * Query parameters:
+     * - expandReferenceNames (bool)
+     *
+     * @param array $body
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
-    public function lookupCalendarEvents(array $body, array $expand = [], bool $expandReferenceNames = false)
+    public function lookupCalendarEvents(array $body, bool $expandReferenceNames = false)
     {
         $queryParams = [];
-        if (!empty($expand)) {
-            $queryParams['expand'] = $expand;
-        }
         if ($expandReferenceNames) {
             $queryParams['expandReferenceNames'] = true;
         }
@@ -741,12 +1001,16 @@ class SS12000Client
     }
 
     /**
-     * Get a calendar event by ID.
+     * Get a calendar event by id.
      *
-     * @param string $eventId ID of the calendar event.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object The calendar event object.
+     * Query parameters:
+     * - expand (array)              : activity, attendance
+     * - expandReferenceNames (bool)
+     *
+     * @param string $eventId
+     * @param array $expand
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function getCalendarEventById(string $eventId, array $expand = [], bool $expandReferenceNames = false)
     {
@@ -765,33 +1029,59 @@ class SS12000Client
     /**
      * Get a list of attendances.
      *
-     * @param array $queryParams Filter parameters.
+     * Supported query keys:
+     * - student (string)               : Student (person) UUID.
+     * - organisation (string)          : Organisation UUID.
+     * - calendarEvent (string)         : CalendarEvent UUID.
+     * - meta.created.before            : Date-time (RFC3339).
+     * - meta.created.after             : Date-time (RFC3339).
+     * - meta.modified.before           : Date-time (RFC3339).
+     * - meta.modified.after            : Date-time (RFC3339).
+     * - expandReferenceNames (bool)
+     * - limit (int)
+     * - pageToken (string)
+     *
+     * Example:
+     *   $client->getAttendances(['student' => '046b6c7f-...','limit' => 50]);
+     *
+     * @param array $queryParams Filter parameters (see supported keys above).
      * @return array|object A list of attendances.
      */
     public function getAttendances(array $queryParams = [])
     {
         $mappedParams = [];
         foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
+            $mappedKey = $this->$key;
             $mappedParams[$mappedKey] = $value;
         }
         return $this->request('GET', '/attendances', $mappedParams);
     }
 
     /**
-     * Get multiple attendances based on a list of IDs.
-     *
-     * @param array $body Request body with IDs.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object A list of attendances.
+     * Post a new attendance.
+     * 
+     * Request body: object with attendance data. : /components/schemas/Attendance
+     * @param array $body
+     * @return void
      */
-    public function lookupAttendances(array $body, array $expand = [], bool $expandReferenceNames = false)
+    public function postAttendance(array $body): void
     {
-        $queryParams = [];
-        if (!empty($expand)) {
-            $queryParams['expand'] = $expand;
-        }
+        $this->requestNoContent('POST', '/attendances', [], $body);
+    }
+
+    /**
+     * Lookup multiple attendances by IDs.
+     *
+     * Request body: array/object with ids.
+     * Query parameters:
+     * - expandReferenceNames (bool)
+     *
+     * @param array $body
+     * @param bool $expandReferenceNames
+     * @return array|object
+     */
+    public function lookupAttendances(array $body, bool $expandReferenceNames = false)
+    {
         if ($expandReferenceNames) {
             $queryParams['expandReferenceNames'] = true;
         }
@@ -799,23 +1089,14 @@ class SS12000Client
     }
 
     /**
-     * Get an attendance by ID.
+     * Get an attendance by id.
      *
-     * @param string $attendanceId ID of the attendance.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object The attendance object.
+     * @param string $attendanceId
+     * @return array|object
      */
-    public function getAttendanceById(string $attendanceId, array $expand = [], bool $expandReferenceNames = false)
+    public function getAttendanceById(string $attendanceId)
     {
-        $queryParams = [];
-        if (!empty($expand)) {
-            $queryParams['expand'] = $expand;
-        }
-        if ($expandReferenceNames) {
-            $queryParams['expandReferenceNames'] = true;
-        }
-        return $this->request('GET', "/attendances/{$attendanceId}", $queryParams);
+        return $this->request('GET', "/attendances/{$attendanceId}");
     }
 
     /**
@@ -834,26 +1115,55 @@ class SS12000Client
     /**
      * Get a list of attendance events.
      *
-     * @param array $queryParams Filter parameters.
-     * @return array|object A list of attendance events.
+     * Common query parameters:
+     * - group (array|string)
+     * - person (string, UUID)
+     * - meta.created.before (string)           : Date-time (RFC3339)
+     * - meta.created.after (string)            : Date-time (RFC3339)
+     * - meta.modified.before (string)          : Date-time (RFC3339)
+     * - meta.modified.after (string)           : Date-time (RFC3339)
+     * - expand (array)                         : person, group, registeredBy
+     * - expandReferenceNames (bool)
+     * - limit (int)
+     * - pageToken (string)
+     *
+     * @param array $queryParams
+     * @return array|object
      */
     public function getAttendanceEvents(array $queryParams = [])
     {
         $mappedParams = [];
         foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
+            $mappedKey = $this->$key;
             $mappedParams[$mappedKey] = $value;
         }
         return $this->request('GET', '/attendanceEvents', $mappedParams);
     }
 
     /**
-     * Get multiple attendance events based on a list of IDs.
+     * Post a new attendance event.
+     * 
+     * Request body: object with attendance event data. : /components/schemas/AttendanceEvent
+     * @param array $body
+     * return void
+     */
+    public function postAttendanceEvent(array $body): void
+    {
+        $this->requestNoContent('POST', '/attendanceEvents', [], $body);
+    }
+
+    /**
+     * Lookup multiple attendance events by IDs.
      *
-     * @param array $body Request body with IDs.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object A list of attendance events.
+     * Request body: array/object with ids.
+     * Query parameters:
+     * - expand (array)                       : person, group, registeredBy
+     * - expandReferenceNames (bool)
+     *
+     * @param array $body
+     * @param array $expand
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function lookupAttendanceEvents(array $body, array $expand = [], bool $expandReferenceNames = false)
     {
@@ -868,12 +1178,16 @@ class SS12000Client
     }
 
     /**
-     * Get an attendance event by ID.
+     * Get an attendance event by id.
      *
-     * @param string $eventId ID of the attendance event.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object The attendance event object.
+     * Query parameters:
+     * - expand (array)                        : person, group, registeredBy
+     * - expandReferenceNames (bool)
+     *
+     * @param string $eventId
+     * @param array $expand
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function getAttendanceEventById(string $eventId, array $expand = [], bool $expandReferenceNames = false)
     {
@@ -887,38 +1201,76 @@ class SS12000Client
         return $this->request('GET', "/attendanceEvents/{$eventId}", $queryParams);
     }
 
+    /**
+     * Delete an attendance event by ID.
+     * 
+     * @param string $eventId ID of the attendance event to delete.
+     * @return void
+     */
+    public function deleteAttendanceEvent(string $eventId): void
+    {
+        $this->requestNoContent('DELETE', "/attendanceEvents/{$eventId}");
+    }
+
     // --- AttendanceSchedules Endpoints ---
 
     /**
      * Get a list of attendance schedules.
      *
-     * @param array $queryParams Filter parameters.
-     * @return array|object A list of attendance schedules.
+     * Common filters:
+     * - placement (string, UUID)
+     * - group (string, UUID)
+     * - startDate.onOrBefore (string)      : Date (RFC3339)
+     * - startDate.onOrAfter (string)       : Date (RFC3339)
+     * - endDate.onOrBefore (string)        : Date (RFC3339)
+     * - endDate.onOrAfter (string)         : Date (RFC3339)
+     * - meta.created.before (string)       : Date-time (RFC3339)
+     * - meta.created.after (string)        : Date-time (RFC3339)
+     * - meta.modified.before (string)      : Date-time (RFC3339)
+     * - meta.modified.after (string)       : Date-time (RFC3339)
+     * - expandReferenceNames (bool)
+     * - limit (int)
+     * - pageToken (string)
+     *
+     * @param array $queryParams
+     * @return array|object
      */
     public function getAttendanceSchedules(array $queryParams = [])
     {
         $mappedParams = [];
         foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
+            $mappedKey = $this->$key;
             $mappedParams[$mappedKey] = $value;
         }
         return $this->request('GET', '/attendanceSchedules', $mappedParams);
     }
 
     /**
-     * Get multiple attendance schedules based on a list of IDs.
-     *
-     * @param array $body Request body with IDs.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object A list of attendance schedules.
+     * Post a new attendance schedule.
+     * 
+     * Request body: object with attendance schedule data. : /components/schemas/AttendanceSchedule
+     * @param array $body
+     * return void
      */
-    public function lookupAttendanceSchedules(array $body, array $expand = [], bool $expandReferenceNames = false)
+    public function postAttendanceSchedule(array $body): void
+    {
+        $this->requestNoContent('POST', '/attendanceSchedules', [], $body);
+    }
+
+    /**
+     * Lookup multiple attendance schedules by IDs.
+     *
+     * Request body: array/object with ids.
+     * Query parameters:
+     * - expandReferenceNames (bool)
+     *
+     * @param array $body
+     * @param bool $expandReferenceNames
+     * @return array|object
+     */
+    public function lookupAttendanceSchedules(array $body, bool $expandReferenceNames = false)
     {
         $queryParams = [];
-        if (!empty($expand)) {
-            $queryParams['expand'] = $expand;
-        }
         if ($expandReferenceNames) {
             $queryParams['expandReferenceNames'] = true;
         }
@@ -926,23 +1278,33 @@ class SS12000Client
     }
 
     /**
-     * Get an attendance schedule by ID.
+     * Get an attendance schedule by id.
      *
-     * @param string $scheduleId ID of the attendance schedule.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object The attendance schedule object.
+     * Query parameters:
+     * - expandReferenceNames (bool)
+     *
+     * @param string $scheduleId
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function getAttendanceScheduleById(string $scheduleId, array $expand = [], bool $expandReferenceNames = false)
     {
         $queryParams = [];
-        if (!empty($expand)) {
-            $queryParams['expand'] = $expand;
-        }
         if ($expandReferenceNames) {
             $queryParams['expandReferenceNames'] = true;
         }
         return $this->request('GET', "/attendanceSchedules/{$scheduleId}", $queryParams);
+    }
+
+    /**
+     * Delete an attendance schedule by ID.
+     * 
+     * @param string $scheduleId ID of the attendance schedule to delete.
+     * @return void
+     */
+    public function deleteAttendanceSchedule(string $scheduleId): void
+    {
+        $this->requestNoContent('DELETE', "/attendanceSchedules/{$scheduleId}");
     }
 
     // --- Grades Endpoints ---
@@ -950,33 +1312,49 @@ class SS12000Client
     /**
      * Get a list of grades.
      *
-     * @param array $queryParams Filter parameters.
-     * @return array|object A list of grades.
+     * Common query parameters:
+     * - organisation (string)              : UUID
+     * - student (string)                   : UUID
+     * - registeredBy (string)              : UUID
+     * - gradingTeacher (string             : UUID
+     * - registeredDate.onOrAfter (string)  : Date (RFC3339)
+     * - registeredDate.onOrBefore (string) : Date (RFC3339)
+     * - meta.created.before (string)       : Date-time (RFC3339)
+     * - meta.created.after (string)        : Date-time (RFC3339)
+     * - meta.modified.before (string)      : Date-time (RFC3339)
+     * - meta.modified.after (string)       : Date-time (RFC3339)
+     * - expandReferenceNames (bool)
+     * - sortkey (string)                   : registeredDateAsc, registeredDateDesc, ModifiedDesc
+     * - limit (int)
+     * - pageToken (string)
+     *
+     * @param array $queryParams
+     * @return array|object
      */
     public function getGrades(array $queryParams = [])
     {
         $mappedParams = [];
         foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
+            $mappedKey = $this->$key;
             $mappedParams[$mappedKey] = $value;
         }
         return $this->request('GET', '/grades', $mappedParams);
     }
 
     /**
-     * Get multiple grades based on a list of IDs.
+     * Lookup multiple grades by IDs.
      *
-     * @param array $body Request body with IDs.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object A list of grades.
+     * Request body: array/object with ids.
+     * Query parameters:
+     * - expandReferenceNames (bool)
+     *
+     * @param array $body
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
-    public function lookupGrades(array $body, array $expand = [], bool $expandReferenceNames = false)
+    public function lookupGrades(array $body, bool $expandReferenceNames = false)
     {
         $queryParams = [];
-        if (!empty($expand)) {
-            $queryParams['expand'] = $expand;
-        }
         if ($expandReferenceNames) {
             $queryParams['expandReferenceNames'] = true;
         }
@@ -984,23 +1362,100 @@ class SS12000Client
     }
 
     /**
-     * Get a grade by ID.
+     * Get a grade by id.
      *
-     * @param string $gradeId ID of the grade.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object The grade object.
+     * Query parameters:
+     * - expandReferenceNames (bool)
+     *
+     * @param string $gradeId
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
-    public function getGradeById(string $gradeId, array $expand = [], bool $expandReferenceNames = false)
+    public function getGradeById(string $gradeId, bool $expandReferenceNames = false)
     {
         $queryParams = [];
-        if (!empty($expand)) {
-            $queryParams['expand'] = $expand;
-        }
         if ($expandReferenceNames) {
             $queryParams['expandReferenceNames'] = true;
         }
         return $this->request('GET', "/grades/{$gradeId}", $queryParams);
+    }
+
+    // --- Absences Endpoints ---
+
+    /**
+     * Get a list of absences.
+     * Common query parameters:
+     * - student (string)                   : UUID
+     * - organisation (string)              : UUID
+     * - registeredBy (string)              : UUID
+     * - type (string)                      : Absence type UUID
+     * - startTime.onOrAfter (string)       : Date-time (RFC3339)
+     * - startTime.onOrBefore (string)      : Date-time (RFC3339)
+     * - endTime.onOrAfter (string)         : Date-time (RFC3339)
+     * - endTime.onOrBefore (string)        : Date-time (RFC3339)
+     * - meta.created.before (string)       : Date-time (RFC3339)
+     * - meta.created.after (string)        : Date-time (RFC3339)
+     * - meta.modified.before (string)      : Date-time (RFC3339)
+     * - meta.modified.after (string)       : Date-time (RFC3339)
+     * - expandReferenceNames (bool)
+     * - sortkey (string)                   : ModifiedDesc, StartTimeAsc, StartTimeDesc
+     * - limit (int)
+     * - pageToken (string)
+     *
+     * @param array $queryParams Filter parameters (see supported keys above).
+     * @return array|object A list of absences.
+     */
+    public function getAbsences(array $queryParams = [])
+    {
+        $mappedParams = [];
+        foreach ($queryParams as $key => $value) {
+            $mappedKey = $this->$key;
+            $mappedParams[$mappedKey] = $value;
+        }
+        return $this->request('GET', '/absences', $mappedParams);
+    }
+    
+    /** 
+     * Post a new absence.
+     * 
+     * Request body: object with absence data. : /components/schemas/Absence
+     * @param array $body
+     * return void
+     */
+    public function postAbsence(array $body): void
+    {
+        $this->requestNoContent('POST', '/absences', [], $body);
+    }
+
+    /**
+     * Lookup multiple absences by IDs.
+     *
+     * Request body: array/object with ids.
+     * Query parameters:
+     * - expandReferenceNames (bool)
+     *
+     * @param array $body
+     * @param bool $expandReferenceNames
+     * @return array|object
+     */
+    public function lookupAbsences(array $body, bool $expandReferenceNames = false)
+    {
+        $queryParams = [];
+        if ($expandReferenceNames) {
+            $queryParams['expandReferenceNames'] = true;
+        }
+        return $this->request('POST', '/absences/lookup', $queryParams, $body);
+    }
+
+    /**
+     * Get an absence by id.
+     *
+     * @param string $absenceId
+     * @return array|object
+     */
+    public function getAbsenceById(string $absenceId)
+    {
+        return $this->request('GET', "/absences/{$absenceId}");
     }
 
     // --- AggregatedAttendance Endpoints ---
@@ -1008,83 +1463,71 @@ class SS12000Client
     /**
      * Get a list of aggregated attendances.
      *
-     * @param array $queryParams Filter parameters.
-     * @return array|object A list of aggregated attendances.
+     * Common query parameters:
+     * - startDate                          : Date (RFC3339)
+     * - endDate                            : Date (RFC3339)
+     * - organisation (string)              : UUID
+     * - schoolType (array|string)          : /components/schemas/SchoolTypesEnum
+     * - student (string)                   : UUID
+     * - expand (array)                     : activity, student
+     * - expandReferenceNames (bool)
+     * - limit (int)
+     * - pageToken (string)
+     *
+     * @param array $queryParams
+     * @return array|object
      */
     public function getAggregatedAttendances(array $queryParams = [])
     {
         $mappedParams = [];
         foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
+            $mappedKey = $this->$key;
             $mappedParams[$mappedKey] = $value;
         }
         return $this->request('GET', '/aggregatedAttendance', $mappedParams);
     }
 
-    /**
-     * Get multiple aggregated attendances based on a list of IDs.
-     *
-     * @param array $body Request body with IDs.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object A list of aggregated attendances.
-     */
-    public function lookupAggregatedAttendances(array $body, array $expand = [], bool $expandReferenceNames = false)
-    {
-        $queryParams = [];
-        if (!empty($expand)) {
-            $queryParams['expand'] = $expand;
-        }
-        if ($expandReferenceNames) {
-            $queryParams['expandReferenceNames'] = true;
-        }
-        return $this->request('POST', '/aggregatedAttendance/lookup', $queryParams, $body);
-    }
-
-    /**
-     * Get an aggregated attendance by ID.
-     *
-     * @param string $attendanceId ID of the aggregated attendance.
-     * @param array $expand Describes if expanded data should be fetched.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object The aggregated attendance object.
-     */
-    public function getAggregatedAttendanceById(string $attendanceId, array $expand = [], bool $expandReferenceNames = false)
-    {
-        $queryParams = [];
-        if (!empty($expand)) {
-            $queryParams['expand'] = $expand;
-        }
-        if ($expandReferenceNames) {
-            $queryParams['expandReferenceNames'] = true;
-        }
-        return $this->request('GET', "/aggregatedAttendance/{$attendanceId}", $queryParams);
-    }
+    /// lookup and individual {id} not part of the SS12000 standard
 
     // --- Resources Endpoints ---
 
     /**
      * Get a list of resources.
      *
-     * @param array $queryParams Filter parameters.
-     * @return array|object A list of resources.
+     * Common filters:
+     * - organisation (string)              : UUID
+     * - meta.created.before (string)       : Date-time (RFC3339)           
+     * - meta.created.after (string)        : Date-time (RFC3339)
+     * - meta.modified.before (string)      : Date-time (RFC3339)
+     * - meta.modified.after (string)       : Date-time (RFC3339)
+     * - expandReferenceNames (bool)
+     * - sortkey (string)                   : ModifiedDesc, DisplayNameAsc
+     * - limit (int)
+     * - pageToken (string)
+     *
+     * @param array $queryParams
+     * @return array|object
      */
     public function getResources(array $queryParams = [])
     {
         $mappedParams = [];
         foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
+            $mappedKey = $this->$key;
             $mappedParams[$mappedKey] = $value;
         }
         return $this->request('GET', '/resources', $mappedParams);
     }
 
     /**
-     * Get multiple resources based on a list of IDs.
+     * Lookup multiple resources by IDs.
      *
-     * @param array $body Request body with IDs.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object A list of resources.
+     * Request body: array/object with ids.
+     * Query parameters:
+     * - expandReferenceNames (bool)
+     *
+     * @param array $body
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function lookupResources(array $body, bool $expandReferenceNames = false)
     {
@@ -1096,11 +1539,14 @@ class SS12000Client
     }
 
     /**
-     * Get a resource by ID.
+     * Get a resource by id.
      *
-     * @param string $resourceId ID of the resource.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object The resource object.
+     * Query parameters:
+     * - expandReferenceNames (bool)
+     *
+     * @param string $resourceId
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function getResourceById(string $resourceId, bool $expandReferenceNames = false)
     {
@@ -1116,25 +1562,40 @@ class SS12000Client
     /**
      * Get a list of rooms.
      *
-     * @param array $queryParams Filter parameters.
-     * @return array|object A list of rooms.
+     * Common filters:
+     * - owner/organisation (string)            : UUID
+     * - meta.created.before (string)           : Date-time RFC3339
+     * - meta.created.after (string)            : Date-time RFC3339
+     * - meta.modified.before (string)          : Date-time RFC3339
+     * - meta.modified.after (string)           : Date-time RFC3339
+     * - expandReferenceNames (bool)
+     * - sortkey (string)                       : ModifiedDesc, DisplayNameAsc
+     * - limit (int)
+     * - pageToken (string)
+     *
+     * @param array $queryParams
+     * @return array|object
      */
     public function getRooms(array $queryParams = [])
     {
         $mappedParams = [];
         foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
+            $mappedKey = $this->$key;
             $mappedParams[$mappedKey] = $value;
         }
         return $this->request('GET', '/rooms', $mappedParams);
     }
 
     /**
-     * Get multiple rooms based on a list of IDs.
+     * Lookup multiple rooms by IDs.
      *
-     * @param array $body Request body with IDs.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object A list of rooms.
+     * Request body: array/object with ids.
+     * Query parameters:
+     * - expandReferenceNames (bool)
+     *
+     * @param array $body
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function lookupRooms(array $body, bool $expandReferenceNames = false)
     {
@@ -1146,11 +1607,14 @@ class SS12000Client
     }
 
     /**
-     * Get a room by ID.
+     * Get a room by id.
      *
-     * @param string $roomId ID of the room.
-     * @param bool $expandReferenceNames Return `displayName` for all referenced objects.
-     * @return array|object The room object.
+     * Query parameters:
+     * - expandReferenceNames (bool)
+     *
+     * @param string $roomId
+     * @param bool $expandReferenceNames
+     * @return array|object
      */
     public function getRoomById(string $roomId, bool $expandReferenceNames = false)
     {
@@ -1164,16 +1628,20 @@ class SS12000Client
     // --- Subscriptions (Webhooks) Endpoints ---
 
     /**
-     * Get a list of subscriptions.
+     * Get a list of subscriptions (webhooks).
      *
-     * @param array $queryParams Filter parameters.
-     * @return array|object A list of subscriptions.
+     * Supported query parameters:
+     * - limit (int)
+     * - pageToken (string)
+     *
+     * @param array $queryParams
+     * @return array|object
      */
     public function getSubscriptions(array $queryParams = [])
     {
         $mappedParams = [];
         foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
+            $mappedKey = $this->$key;
             $mappedParams[$mappedKey] = $value;
         }
         return $this->request('GET', '/subscriptions', $mappedParams);
@@ -1182,8 +1650,17 @@ class SS12000Client
     /**
      * Create a subscription.
      *
-     * @param array|object $body Request body with subscription details.
-     * @return array|object The created subscription object.
+     * Request body: object with at least:
+     * - name (string)
+     * - target (string, publicly reachable webhook URL)
+     * - resourceTypes (array)
+     * - expires (string, date-time RFC3339) optional
+     *
+     * Example:
+     *   $client->createSubscription(['name'=>'sub','target'=>'https://...', 'resourceTypes'=>[['resource'=>'Person']]]);
+     *
+     * @param array|object $body
+     * @return array|object
      */
     public function createSubscription($body)
     {
@@ -1191,9 +1668,9 @@ class SS12000Client
     }
 
     /**
-     * Delete a subscription.
+     * Delete a subscription by id.
      *
-     * @param string $subscriptionId ID of the subscription to delete.
+     * @param string $subscriptionId
      * @return void
      */
     public function deleteSubscription(string $subscriptionId): void
@@ -1202,10 +1679,10 @@ class SS12000Client
     }
 
     /**
-     * Get a subscription by ID.
+     * Get a subscription by id.
      *
-     * @param string $subscriptionId ID of the subscription.
-     * @return array|object The subscription object.
+     * @param string $subscriptionId
+     * @return array|object
      */
     public function getSubscriptionById(string $subscriptionId)
     {
@@ -1213,11 +1690,13 @@ class SS12000Client
     }
 
     /**
-     * Update the expire time of a subscription by ID.
+     * Update a subscription (typically to extend expires).
      *
-     * @param string $subscriptionId ID of the subscription to update.
-     * @param array|object $body Request body with expiry timestamp.
-     * @return array|object The updated subscription object.
+     * Request body: object with fields to update (e.g. ['expires' => '2026-01-01T00:00:00+00:00'])
+     *
+     * @param string $subscriptionId
+     * @param array|object $body
+     * @return array|object
      */
     public function updateSubscription(string $subscriptionId, $body)
     {
@@ -1229,14 +1708,20 @@ class SS12000Client
     /**
      * Get a list of deleted entities.
      *
-     * @param array $queryParams Filter parameters.
-     * @return array|object A list of deleted entities.
+     * Common query parameters:
+     * - modifiedAfter / deletedAfter (string, date-time RFC3339)
+     * - resourceTypes (array)
+     * - limit (int)
+     * - pageToken (string)
+     *
+     * @param array $queryParams
+     * @return array|object
      */
     public function getDeletedEntities(array $queryParams = [])
     {
         $mappedParams = [];
         foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
+            $mappedKey = $this->$key;
             $mappedParams[$mappedKey] = $value;
         }
         return $this->request('GET', '/deletedEntities', $mappedParams);
@@ -1244,54 +1729,26 @@ class SS12000Client
 
     // --- Log Endpoint ---
 
-    /**
-     * Get a list of log entries.
-     *
-     * @param array $queryParams Filter parameters.
-     * @return array|object A list of log entries.
-     */
-    public function getLog(array $queryParams = [])
+   /**
+    * Create a log entry.
+    * @param array|object $body Log entry data. : /components/schemas/LogEntry
+    * @return void
+    */
+    public function createLogEntry($body)
     {
-        $mappedParams = [];
-        foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
-            $mappedParams[$mappedKey] = $value;
-        }
-        return $this->request('GET', '/log', $mappedParams);
-    }
+        $this->requestNoContent('POST', '/log', [], $body);
+    }   
 
     // --- Statistics Endpoint ---
 
-    /**
-     * Get a list of statistics.
-     *
-     * @param array $queryParams Filter parameters.
-     * @return array|object A list of statistics.
-     */
-    public function getStatistics(array $queryParams = [])
+  /**
+   * Create a statistics entry.
+   * @param array|object $body Statistics entry data. : /components/schemas/StatisticsEntry
+   * @return void
+   */
+    public function createStatisticsEntry($body)
     {
-        $mappedParams = [];
-        foreach ($queryParams as $key => $value) {
-            $mappedKey = $this->mapParamKey($key);
-            $mappedParams[$mappedKey] = $value;
-        }
-        return $this->request('GET', '/statistics', $mappedParams);
-    }
-
-    /**
-     * Helper function to map snake_case parameters to camelCase for the API.
-     * This is a simplified example and might need to be expanded based on actual API parameter naming conventions.
-     *
-     * @param string $key
-     * @return string
-     */
-    private function mapParamKey(string $key): string
-    {
-        // Example mapping for common patterns like 'start_date_on_or_before' to 'startDate.onOrBefore'
-        // This is a basic conversion; for complex cases, a more robust mapping might be needed.
-        return preg_replace_callback('/_([a-z])/', function ($matches) {
-            return strtoupper($matches[1]);
-        }, $key);
+        $this->requestNoContent('POST', '/statistics', [], $body);
     }
 }
 
