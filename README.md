@@ -42,7 +42,7 @@ This library is designed to be installed via Composer.
     "require": {
         "php": ">=7.4",
         "guzzlehttp/guzzle": "^7.0",
-        "your-vendor-name/ss12000-client": "^0.1"
+        "andreas_galistel/ss12000client": "^0.2"
     }
 }
 ```
